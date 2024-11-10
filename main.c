@@ -213,14 +213,18 @@ void editorMoveCursor(int key) {
             if (E.currentRow->prev) {
                 E.currentRow = E.currentRow->prev;
                 E.cy--;
-                if (E.cx > E.currentRow->size) E.cx = E.currentRow->size;
+                if (E.cx > E.currentRow->size) {
+                    E.cx = E.currentRow->size;
+                }
             }
             break;
         case KEY_DOWN:
             if (E.currentRow->next) {
                 E.currentRow = E.currentRow->next;
                 E.cy++;
-                if (E.cx > E.currentRow->size) E.cx = E.currentRow->size;
+                if (E.cx > E.currentRow->size) {
+                    E.cx = E.currentRow->size;
+                }
             }
             break;
         case KEY_HOME:
@@ -255,33 +259,44 @@ void editorMoveCursor(int key) {
 }
 
 void editorRows() {
-    struct text *row = E.row;
+    struct text *current = E.row;
 
     for (int y = 0; y < E.screenRows; y++) {
         int fileRow = y + E.rowoff;
         if (fileRow >= E.totalRows) {
-            // 파일이 없을 때만 중앙에 텍스트 출력
+            // 텍스트가 없을 때만 중앙에 메시지 출력
             if (E.totalRows == 0 && y == E.screenRows / 2) {
                 char welcome[80];
                 int welcomelen = snprintf(welcome, sizeof(welcome), "Visual Text editor -- version 0.0.1");
-                if (welcomelen > E.screenCols) welcomelen = E.screenCols; // 스크린 폭을 초과하지 않게
+                if (welcomelen > E.screenCols) welcomelen = E.screenCols;
 
-                int padding = (E.screenCols - welcomelen) / 2; // 중앙에 배치하기 위한 패딩 계산
+                int padding = (E.screenCols - welcomelen) / 2;
                 if (padding) {
-                    mvaddch(y, 0, '~'); // '~' 기호로 시작하는 줄
-                    padding--;
+                    mvaddch(y, 0, '~');
                 }
-                while (padding--) mvaddch(y, E.screenCols - padding, ' '); // 공백으로 패딩
-                mvaddnstr(y, (E.screenCols - welcomelen) / 2, welcome, welcomelen); // 중앙에 메시지 출력
+                mvaddnstr(y, padding, welcome, welcomelen);
             } else {
-                mvaddch(y, 0, '~'); // '~'는 빈 줄을 의미함
+                mvaddch(y, 0, '~');
             }
         } else {
-            // 텍스트가 있는 경우 출력
-            int len = row->size;
-            if (len > E.screenCols) len = E.screenCols;
-            mvaddnstr(y, 0, row->chars, len);
-            row = row->next;
+            current = E.row;
+            for (int i = 0; i < fileRow; i++) {
+                if (current->next) {
+                    current = current->next;
+                } else {
+                    break;
+                }
+            }
+
+            int len = current ? current->size : 0;
+            if (len > E.screenCols) {
+                len = E.screenCols;
+            }
+            if (current && current->chars) {
+                mvaddnstr(y, 0, current->chars, len);
+            } else {
+                mvaddch(y, 0, '~');
+            }
         }
     }
 }
@@ -315,13 +330,13 @@ void editorRefreshScreen() {
     editorRows();
     editorStatusBar();
     editorMessageBar();
-    move(E.cy - E.rowoff, E.cx);
+    // move(E.cy - E.rowoff, E.cx);
+    move(E.cy - E.rowoff, E.cx < E.screenCols ? E.cx : E.screenCols - 1);
     refresh();
 }
 int main(int argc, char *argv[]) {
     initscr();
     raw();
-    cbreak();
     keypad(stdscr, TRUE);
     scrollok(stdscr, TRUE);
     noecho();
