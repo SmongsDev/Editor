@@ -1,3 +1,0 @@
-/mnt/c/Users/sssm0/CLionProjects/Editor/cmake-build-debug/CMakeFiles/Editor.dir
-/mnt/c/Users/sssm0/CLionProjects/Editor/cmake-build-debug/CMakeFiles/edit_cache.dir
-/mnt/c/Users/sssm0/CLionProjects/Editor/cmake-build-debug/CMakeFiles/rebuild_cache.dir

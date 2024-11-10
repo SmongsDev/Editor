@@ -142,11 +142,11 @@ void editorInsertChar(int c) {
         E.cx = 0;
         E.cy++;
         if (E.cy >= E.screenRows) {
-            scroll(stdscr);  // 화면을 자동으로 스크롤
+            scroll(stdscr);
             E.cy = E.screenRows - 1;
         }
     }
-    editorScroll();  // 스크롤 조정
+    editorScroll();
 }
 
 void editorInsertNewline() {
@@ -255,7 +255,7 @@ void editorMoveCursor(int key) {
             break;
     }
 
-    editorScroll();  // 스크롤 조정
+    editorScroll();
 }
 
 void editorRows() {
@@ -319,10 +319,124 @@ void editorMessageBar() {
     mvaddstr(y, 0, message);
 }
 
+int saved_cx, saved_cy;
+bool search_mode = false;
+char query[256];
+
+void editorFindCallback(char *query) {
+    struct text *row = E.row;
+    int found = 0;
+
+    for (int y = 0; row && y < E.totalRows; y++, row = row->next) {
+        char *match = strstr(row->chars, query);
+        if (match) {
+            found = 1;
+            E.cy = y;
+            E.cx = match - row->chars;
+            E.currentRow = row;
+            E.rowoff = E.cy;
+            break;
+        }
+    }
+
+    if (!found) {
+        snprintf(E.message, sizeof(E.message), "No match found for '%s'", query);
+    }
+}
+
+void editorFind() {
+    mvprintw(E.screenRows, 0, "Search: ");
+    echo();
+    getnstr(query, sizeof(query) - 1);
+    noecho();
+
+    // 검색 전 커서 위치를 저장
+    saved_cx = E.cx;
+    saved_cy = E.cy;
+    search_mode = true;  // 검색 모드 활성화
+
+    editorFindCallback(query);
+}
+
+void editorHighlightMatch(char *query) {
+    struct text *row = E.row;
+    for (int y = 0; row && y < E.totalRows; y++, row = row->next) {
+        char *match = strstr(row->chars, query);
+        if (match) {
+            // 현재 일치 항목의 위치로 이동하고, 하이라이트 표시
+            attron(A_REVERSE);
+            mvaddnstr(y - E.rowoff, match - row->chars, query, strlen(query));
+            attroff(A_REVERSE);
+        }
+    }
+}
+
+void editorSearchNext(char *query, int direction) {
+    struct text *row = E.currentRow;
+    int found = 0;
+
+    // 방향에 따라 다음 또는 이전 일치 항목으로 이동
+    while (row) {
+        char *match = strstr(row->chars, query);
+        if (match) {
+            E.cy += direction; // 문제 있는 부분. E.cy의 값을 다음 검색 결과의 위치로 이동해야함
+            E.cx = match - row->chars;
+            E.currentRow = row;
+            E.rowoff = E.cy;
+            found = 1;
+            break;
+        }
+        row = direction > 0 ? row->next : row->prev;
+    }
+
+    if (!found) {
+        if (direction > 0) {
+            // 마지막 결과에서 처음으로 이동
+            E.currentRow = E.row;
+            E.cy = 0;
+        } else {
+            // 첫 번째 결과에서 마지막으로 이동
+            E.currentRow = E.row;
+            while (E.currentRow->next) {
+                E.currentRow = E.currentRow->next;
+            }
+            E.cy = E.totalRows - 1;
+        }
+    }
+}
+
+void editorSearchMode(char *query) {
+    int key;
+
+    while (search_mode) {
+        editorRefreshScreen();
+        editorHighlightMatch(query);
+
+        key = getch();
+        switch (key) {
+            case KEY_RIGHT:
+                editorSearchNext(query, 1);  // 다음 항목
+                break;
+            case KEY_LEFT:
+                editorSearchNext(query, -1);  // 이전 항목
+                break;
+            case '\n':  // Enter로 검색 종료
+                search_mode = false;
+                break;
+            case 27:  // Esc로 검색 취소 및 위치 복원
+                E.cx = saved_cx;
+                E.cy = saved_cy;
+                search_mode = false;
+                break;
+        }
+    }
+}
+
+
 void updateWindowSize() {
     // 화면 크기를 다시 가져와서 screenRows와 screenCols를 업데이트
     getmaxyx(stdscr, E.screenRows, E.screenCols);
-    E.screenRows -= 2;  // 상태 바와 메시지 바를 위한 두 줄 확보
+    E.screenRows -= 2;
 }
 
 void editorRefreshScreen() {
@@ -330,16 +444,16 @@ void editorRefreshScreen() {
     editorRows();
     editorStatusBar();
     editorMessageBar();
-    // move(E.cy - E.rowoff, E.cx);
     move(E.cy - E.rowoff, E.cx < E.screenCols ? E.cx : E.screenCols - 1);
     refresh();
 }
+
 int main(int argc, char *argv[]) {
     initscr();
     raw();
     keypad(stdscr, TRUE);
     scrollok(stdscr, TRUE);
-    noecho();
+//    noecho();
     initEditor();
 
     if (argc >= 2) {
@@ -362,6 +476,9 @@ int main(int argc, char *argv[]) {
                 break;
             case CTRL_KEY('s'):
                 editorSave();
+                break;
+            case CTRL_KEY('f'):
+                editorFind();
                 break;
             case KEY_UP:
             case KEY_DOWN:
@@ -386,6 +503,10 @@ int main(int argc, char *argv[]) {
             default:
                 editorInsertChar(c);
                 break;
+        }
+
+        if (search_mode) {
+            editorSearchMode(query);
         }
     }
     return 0;
