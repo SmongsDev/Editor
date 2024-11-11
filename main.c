@@ -7,6 +7,7 @@
 #define CTRL_KEY(k) ((k) & 0x1f)
 
 struct text {
+    int index;
     int size;
     char *chars;
     struct text *prev;
@@ -47,6 +48,14 @@ void initEditor() {
     scrollok(stdscr, TRUE);
 }
 
+void initColors() {
+    start_color();
+    init_pair(1, COLOR_YELLOW, COLOR_BLACK); // 일반 검색 결과 색상
+    init_pair(2, COLOR_RED, COLOR_BLACK);    // 현재 검색 결과 색상
+
+    use_default_colors();
+}
+
 void editorScroll() {
     // 커서가 화면 위쪽을 벗어났을 때
     if (E.cy < E.rowoff) {
@@ -64,6 +73,7 @@ void editorAppendRow(const char *s, size_t len) {
     new_row->chars = (char *)malloc(len + 1);
     memcpy(new_row->chars, s, len);
     new_row->chars[len] = '\0';
+    new_row->index = E.totalRows;
     new_row->prev = NULL;
     new_row->next = NULL;
 
@@ -104,6 +114,7 @@ void editorSave() {
     if (E.filename == NULL) {
         // 파일 이름 입력받기
         char filename[256];
+        mvhline(E.screenRows, 0, ' ', E.screenCols);
         mvprintw(E.screenRows, 0, "Save as: ");
         echo(); // ncurses의 입력 에코 활성화. 입력한 문자가 화면에 표시됨
         getnstr(filename, sizeof(filename) - 1);
@@ -129,6 +140,9 @@ void editorInsertChar(int c) {
     if (E.currentRow == NULL) {
         editorAppendRow("", 0);
     }
+    if (!((c >= 32 && c <= 126) || (c >= 192 && c <= 255)))
+        return;
+
     struct text *row = E.currentRow;
 
     row->chars = (char *)realloc(row->chars, row->size + 2);
@@ -148,7 +162,6 @@ void editorInsertChar(int c) {
     }
     editorScroll();
 }
-
 void editorInsertNewline() {
     if (E.currentRow == NULL) {
         editorAppendRow("", 0);
@@ -156,12 +169,22 @@ void editorInsertNewline() {
     }
 
     struct text *row = E.currentRow;
-    char *new_line_content = strdup(&row->chars[E.cx]);
-    row->chars[E.cx] = '\0';
-    row->size = E.cx;
 
-   struct text *new_row = (struct text *)malloc(sizeof(struct text));
-    new_row->size = strlen(new_line_content);
+    // 현재 커서 위치 이후의 내용을 새 줄로 이동
+    int new_line_length = row->size - E.cx;
+    char *new_line_content = (char *)malloc(new_line_length + 1);
+    if (!new_line_content) return; // 메모리 할당 실패 시 함수 종료
+
+    // 새로운 줄에 현재 커서 이후의 내용 복사
+    memcpy(new_line_content, &row->chars[E.cx], new_line_length);
+    new_line_content[new_line_length] = '\0';  // 널 문자로 종료
+
+    row->chars[E.cx] = '\0';  // 현재 줄의 남은 부분을 잘라냄
+    row->size = E.cx;         // 현재 줄의 길이를 커서 위치로 업데이트
+
+    // 새로운 줄 생성 및 초기화
+    struct text *new_row = (struct text *)malloc(sizeof(struct text));
+    new_row->size = new_line_length;
     new_row->chars = new_line_content;
     new_row->next = row->next;
     new_row->prev = row;
@@ -171,6 +194,7 @@ void editorInsertNewline() {
     }
     row->next = new_row;
 
+    // 새 줄로 커서 이동
     E.currentRow = new_row;
     E.totalRows++;
     E.cx = 0;
@@ -181,12 +205,43 @@ void editorInsertNewline() {
 }
 
 void editorDelChar() {
-    if (E.currentRow == NULL || E.cx == 0) return;
+    if (E.currentRow == NULL) return;
+
     struct text *row = E.currentRow;
-    memmove(&row->chars[E.cx - 1], &row->chars[E.cx], row->size - E.cx);
-    row->size--;
-    E.cx--;
-    E.isSave = true;
+
+    if (E.cx == 0) {
+        if (row->prev) {
+            struct text *prev_row = row->prev;
+
+            E.cy--;
+            E.cx = prev_row->size;
+
+            // 이전 줄 끝에 현재 줄 내용을 추가
+            prev_row->chars = realloc(prev_row->chars, prev_row->size + row->size + 1);
+            memcpy(&prev_row->chars[prev_row->size], row->chars, row->size);
+            prev_row->size += row->size;
+            prev_row->chars[prev_row->size] = '\0';
+
+            // 현재 줄을 삭제
+            if (row->next) {
+                row->next->prev = prev_row;
+            }
+            prev_row->next = row->next;
+
+            free(row->chars);
+            free(row);
+
+            E.currentRow = prev_row;
+            E.totalRows--;
+            E.isSave = true;
+        }
+    } else {
+        // E.cx가 0이 아닐 때, 일반적인 문자 삭제
+        memmove(&row->chars[E.cx - 1], &row->chars[E.cx], row->size - E.cx);
+        row->size--;
+        E.cx--;
+        E.isSave = true;
+    }
 }
 
 void editorMoveCursor(int key) {
@@ -322,6 +377,8 @@ void editorMessageBar() {
 int saved_cx, saved_cy;
 bool search_mode = false;
 char query[256];
+int current_match_y = -1;           // 검색 결과의 행 위치
+int current_match_x = -1;           // 색 결과의 열 위치
 
 void editorFindCallback(char *query) {
     struct text *row = E.row;
@@ -331,7 +388,7 @@ void editorFindCallback(char *query) {
         char *match = strstr(row->chars, query);
         if (match) {
             found = 1;
-            E.cy = y;
+            E.cy = row->index;
             E.cx = match - row->chars;
             E.currentRow = row;
             E.rowoff = E.cy;
@@ -345,7 +402,8 @@ void editorFindCallback(char *query) {
 }
 
 void editorFind() {
-    mvprintw(E.screenRows, 0, "Search: ");
+    mvhline(E.screenRows + 1, 0, ' ', E.screenCols);
+    mvprintw(E.screenRows + 1, 0, "Search: ");
     echo();
     getnstr(query, sizeof(query) - 1);
     noecho();
@@ -362,47 +420,57 @@ void editorHighlightMatch(char *query) {
     struct text *row = E.row;
     for (int y = 0; row && y < E.totalRows; y++, row = row->next) {
         char *match = strstr(row->chars, query);
-        if (match) {
-            // 현재 일치 항목의 위치로 이동하고, 하이라이트 표시
-            attron(A_REVERSE);
-            mvaddnstr(y - E.rowoff, match - row->chars, query, strlen(query));
-            attroff(A_REVERSE);
+        while (match) {
+            int match_pos = match - row->chars;
+            if (y == current_match_y && match_pos == current_match_x) {
+                attron(COLOR_PAIR(2));
+                mvaddnstr(y - E.rowoff, match_pos, query, strlen(query));
+                attroff(COLOR_PAIR(2));
+            } else {
+                attron(COLOR_PAIR(1));
+                mvaddnstr(y - E.rowoff, match_pos, query, strlen(query));
+                attroff(COLOR_PAIR(1));
+            }
+            match = strstr(match + 1, query);
         }
     }
 }
 
 void editorSearchNext(char *query, int direction) {
-    struct text *row = E.currentRow;
+    struct text *row = direction > 0 ? E.currentRow->next : E.currentRow->prev;
     int found = 0;
 
-    // 방향에 따라 다음 또는 이전 일치 항목으로 이동
     while (row) {
         char *match = strstr(row->chars, query);
         if (match) {
-            E.cy += direction; // 문제 있는 부분. E.cy의 값을 다음 검색 결과의 위치로 이동해야함
+            E.cy = row->index;
             E.cx = match - row->chars;
             E.currentRow = row;
             E.rowoff = E.cy;
+            current_match_y = E.cy;
+            current_match_x = match - row->chars;
             found = 1;
             break;
         }
         row = direction > 0 ? row->next : row->prev;
     }
-
     if (!found) {
-        if (direction > 0) {
-            // 마지막 결과에서 처음으로 이동
-            E.currentRow = E.row;
-            E.cy = 0;
-        } else {
-            // 첫 번째 결과에서 마지막으로 이동
-            E.currentRow = E.row;
-            while (E.currentRow->next) {
-                E.currentRow = E.currentRow->next;
-            }
-            E.cy = E.totalRows - 1;
-        }
+        snprintf(E.message, sizeof(E.message), "No more matches found.");
     }
+}
+
+void updateWindowSize() {
+    getmaxyx(stdscr, E.screenRows, E.screenCols);
+    E.screenRows -= 2;
+}
+
+void editorRefreshScreen() {
+    clear();
+    editorRows();
+    editorStatusBar();
+    editorMessageBar();
+    move(E.cy - E.rowoff, E.cx < E.screenCols ? E.cx : E.screenCols - 1);
+    refresh();
 }
 
 void editorSearchMode(char *query) {
@@ -428,25 +496,15 @@ void editorSearchMode(char *query) {
                 E.cy = saved_cy;
                 search_mode = false;
                 break;
+            case KEY_RESIZE:  // 화면 크기 변경
+                updateWindowSize();
+                editorScroll();
+                break;
         }
     }
 }
 
 
-void updateWindowSize() {
-    // 화면 크기를 다시 가져와서 screenRows와 screenCols를 업데이트
-    getmaxyx(stdscr, E.screenRows, E.screenCols);
-    E.screenRows -= 2;
-}
-
-void editorRefreshScreen() {
-    clear();
-    editorRows();
-    editorStatusBar();
-    editorMessageBar();
-    move(E.cy - E.rowoff, E.cx < E.screenCols ? E.cx : E.screenCols - 1);
-    refresh();
-}
 
 int main(int argc, char *argv[]) {
     initscr();
@@ -455,6 +513,8 @@ int main(int argc, char *argv[]) {
     scrollok(stdscr, TRUE);
 //    noecho();
     initEditor();
+
+    initColors();
 
     if (argc >= 2) {
         editorOpen(argv[1]);
@@ -466,6 +526,7 @@ int main(int argc, char *argv[]) {
         switch (c) {
             case CTRL_KEY('q'):
                 if (E.isSave) {
+                    mvhline(E.screenRows, 0, ' ', E.screenCols);
                     mvprintw(E.screenRows, 0, "Unsaved changes! Press Ctrl-Q again to quit.");
                     refresh();
                     int confirm = getch();
@@ -496,9 +557,9 @@ int main(int argc, char *argv[]) {
             case '\n':
                 editorInsertNewline();
                 break;
-            case KEY_RESIZE:  // 창 크기가 변경되었을 때
+            case KEY_RESIZE:
                 updateWindowSize();
-                editorScroll();  // 화면이 새 크기에 맞춰 스크롤
+                editorScroll();
                 break;
             default:
                 editorInsertChar(c);
