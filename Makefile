@@ -2,8 +2,12 @@
 CC = gcc
 
 # 컴파일 옵션
-CFLAGS = -Wall -g `ncursesw5-config --cflags`
-LDFLAGS = `ncursesw5-config --libs`
+#CFLAGS = -Wall -g `ncursesw5-config --cflags`
+#LDFLAGS = `ncursesw5-config --libs`
+
+CFLAGS = -Wall -g $(shell if command -v ncursesw5-config > /dev/null 2>&1; then ncursesw5-config --cflags; else ncurses5-config --cflags; fi)
+LDFLAGS = $(shell if command -v ncursesw5-config > /dev/null 2>&1; then ncursesw5-config --libs; else ncurses5-config --libs; fi)
+
 
 # 실행 파일 이름
 TARGET = viva

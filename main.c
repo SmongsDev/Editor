@@ -56,6 +56,15 @@ void initColors() {
     use_default_colors();
 }
 
+void initIndexNumbering() {
+    struct text *row = E.row;
+    int idx = 0;
+    while (row) {
+        row->index = idx;
+        idx++;
+    }
+}
+
 void editorScroll() {
     // 커서가 화면 위쪽을 벗어났을 때
     if (E.cy < E.rowoff) {
@@ -188,6 +197,7 @@ void editorInsertNewline() {
     new_row->chars = new_line_content;
     new_row->next = row->next;
     new_row->prev = row;
+    new_row->size = E.totalRows + 1;
 
     if (row->next) {
         row->next->prev = new_row;
@@ -395,7 +405,6 @@ void editorFindCallback(char *query) {
             break;
         }
     }
-
     if (!found) {
         snprintf(E.message, sizeof(E.message), "No match found for '%s'", query);
     }
@@ -448,7 +457,7 @@ void editorSearchNext(char *query, int direction) {
             E.currentRow = row;
             E.rowoff = E.cy;
             current_match_y = E.cy;
-            current_match_x = match - row->chars;
+            current_match_x = E.cx;
             found = 1;
             break;
         }
@@ -488,13 +497,12 @@ void editorSearchMode(char *query) {
             case KEY_LEFT:
                 editorSearchNext(query, -1);  // 이전 항목
                 break;
-            case '\n':  // Enter로 검색 종료
-                search_mode = false;
-                break;
+            case '\n':
             case 27:  // Esc로 검색 취소 및 위치 복원
                 E.cx = saved_cx;
                 E.cy = saved_cy;
                 search_mode = false;
+                editorRefreshScreen();
                 break;
             case KEY_RESIZE:  // 화면 크기 변경
                 updateWindowSize();
@@ -565,7 +573,6 @@ int main(int argc, char *argv[]) {
                 editorInsertChar(c);
                 break;
         }
-
         if (search_mode) {
             editorSearchMode(query);
         }
