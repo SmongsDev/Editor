@@ -1,8 +1,13 @@
-#include <ncurses.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+
+#if defined(_WIN32) || defined(_WIN64)
+    #include <curses.h>       // Windows에서는 curses
+#else
+    #include <ncurses.h>       // Linux에서는 ncurses
+#endif
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
@@ -97,22 +102,61 @@ void editorAppendRow(const char *s, size_t len) {
     }
     E.totalRows++;
 }
+ssize_t window_getline(char **lineptr, size_t *n, FILE *stream) {
+    if (!lineptr || !n || !stream) return -1;
+
+    char *buf = *lineptr;
+    size_t size = *n;
+    int c;
+    size_t i = 0;
+
+    if (buf == NULL || size == 0) {
+        size = 128;
+        buf = realloc(buf, size);
+        if (!buf) return -1;
+        *lineptr = buf;
+        *n = size;
+    }
+
+    while ((c = fgetc(stream)) != EOF) {
+        if (i >= size - 1) {
+            size *= 2;
+            buf = realloc(buf, size);
+            if (!buf) return -1;
+            *lineptr = buf;
+            *n = size;
+        }
+        buf[i++] = (char)c;
+        if (c == '\n') break;
+    }
+
+    if (i == 0) return -1;
+
+    buf[i] = '\0';
+    return i;
+}
 
 void editorOpen(const char *filename) {
     free(E.filename);
     E.filename = strdup(filename);
 
-    FILE *fp = fopen(filename, "r");
+   FILE *fp = fopen(filename, "r");
     if (!fp) die("fopen");
 
     char *line = NULL; // 읽어온 줄을 저장할 문자열 포인터
     size_t linecap = 0; // 버퍼의 크기
     ssize_t linelen; // 문자열의 길이 (문자 수)
-    while ((linelen = getline(&line, &linecap, fp)) != -1) { // 파일의 끝에 도달시 -1을 반환
+
+    #ifdef _WIN32
+        while ((linelen = window_getline(&line, &linecap, fp)) != -1) {
+    #else
+        while ((linelen = getline(&line, &linecap, fp)) != -1) {
+    #endif
         while (linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
             linelen--;
         editorAppendRow(line, linelen);
     }
+
     free(line);
     fclose(fp);
     E.isSave = false;
@@ -121,11 +165,10 @@ void editorOpen(const char *filename) {
 
 void editorSave() {
     if (E.filename == NULL) {
-        // 파일 이름 입력받기
         char filename[256];
         mvhline(E.screenRows, 0, ' ', E.screenCols);
         mvprintw(E.screenRows, 0, "Save as: ");
-        echo(); // ncurses의 입력 에코 활성화. 입력한 문자가 화면에 표시됨
+        echo();
         getnstr(filename, sizeof(filename) - 1);
         noecho();
         E.filename = strdup(filename);
@@ -171,6 +214,7 @@ void editorInsertChar(int c) {
     }
     editorScroll();
 }
+
 void editorInsertNewline() {
     if (E.currentRow == NULL) {
         editorAppendRow("", 0);
@@ -367,12 +411,24 @@ void editorRows() {
 }
 
 void editorStatusBar() {
-    int y = E.screenRows;
     attron(A_REVERSE);
-    mvhline(y, 0, ' ', E.screenCols);
-    char status[80];
-    snprintf(status, sizeof(status), " %s - %d lines", E.filename ? E.filename : "[No Name]", E.totalRows);
-    mvaddstr(y, 0, status);
+    char *ext = strrchr(E.filename ? E.filename : "[No Name]", '.');
+
+    char leftStatus[40];
+    int leftLen = snprintf(leftStatus, sizeof(leftStatus), " %s - %d lines", E.filename ? E.filename : "[No Name]", E.totalRows);
+
+    char rightStatus[40];
+    int rightLen = snprintf(rightStatus, sizeof(rightStatus), "%s | %d/%d", ext ? ++ext : "no ft", E.cy + 1, E.totalRows);
+
+    mvhline(E.screenRows, 0, ' ', E.screenCols);  // 상태 바 초기화
+    mvprintw(E.screenRows, 0, "%s", leftStatus);  // 왼쪽 상태 바 출력
+    mvprintw(E.screenRows, E.screenCols - rightLen, "%s", rightStatus);
+
+//    mvhline(y, 0, ' ', E.screenCols);
+//    char status[80];
+//    char *ext = strrchr(E.filename ? E.filename : "[No Name]", '.');
+//    snprintf(status, sizeof(status), " %s - %d lines", E.filename ? E.filename : "[No Name]", E.totalRows);
+//    mvaddstr(y, 0, status);
     attroff(A_REVERSE);
 }
 
@@ -384,7 +440,8 @@ void editorMessageBar() {
     mvaddstr(y, 0, message);
 }
 
-int saved_cx, saved_cy;
+int saved_cx, saved_cy, saved_rowoff;
+struct text *saved_currentRow;
 bool search_mode = false;
 char query[256];
 int current_match_y = -1;           // 검색 결과의 행 위치
@@ -417,10 +474,12 @@ void editorFind() {
     getnstr(query, sizeof(query) - 1);
     noecho();
 
-    // 검색 전 커서 위치를 저장
+    // 검색 전 커서와 화면 위치를 저장
     saved_cx = E.cx;
     saved_cy = E.cy;
-    search_mode = true;  // 검색 모드 활성화
+    saved_rowoff = E.rowoff;
+    saved_currentRow = E.currentRow;
+    search_mode = true;
 
     editorFindCallback(query);
 }
@@ -493,26 +552,26 @@ void editorSearchMode(char *query) {
         switch (key) {
             case KEY_RIGHT:
                 editorSearchNext(query, 1);  // 다음 항목
-                break;
+            break;
             case KEY_LEFT:
                 editorSearchNext(query, -1);  // 이전 항목
-                break;
+            break;
             case '\n':
             case 27:  // Esc로 검색 취소 및 위치 복원
                 E.cx = saved_cx;
                 E.cy = saved_cy;
+                E.rowoff = saved_rowoff;
+                E.currentRow = saved_currentRow;
                 search_mode = false;
                 editorRefreshScreen();
                 break;
             case KEY_RESIZE:  // 화면 크기 변경
                 updateWindowSize();
-                editorScroll();
-                break;
+            editorScroll();
+            break;
         }
     }
 }
-
-
 
 int main(int argc, char *argv[]) {
     initscr();
@@ -520,8 +579,8 @@ int main(int argc, char *argv[]) {
     keypad(stdscr, TRUE);
     scrollok(stdscr, TRUE);
 //    noecho();
-    initEditor();
 
+    initEditor();
     initColors();
 
     if (argc >= 2) {
@@ -559,9 +618,11 @@ int main(int argc, char *argv[]) {
             case KEY_NPAGE:
                 editorMoveCursor(c);
                 break;
+            case '\b':
             case KEY_BACKSPACE:
                 editorDelChar();
                 break;
+            case '\r':
             case '\n':
                 editorInsertNewline();
                 break;

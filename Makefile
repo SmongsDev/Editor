@@ -1,34 +1,37 @@
 # 컴파일러 설정
 CC = gcc
 
-# 컴파일 옵션
-#CFLAGS = -Wall -g `ncursesw5-config --cflags`
-#LDFLAGS = `ncursesw5-config --libs`
+# 공통 컴파일 옵션
+CFLAGS = -Wall -g
 
-CFLAGS = -Wall -g $(shell if command -v ncursesw5-config > /dev/null 2>&1; then ncursesw5-config --cflags; else ncurses5-config --cflags; fi)
-LDFLAGS = $(shell if command -v ncursesw5-config > /dev/null 2>&1; then ncursesw5-config --libs; else ncurses5-config --libs; fi)
-
-
-# 실행 파일 이름
-TARGET = viva
+# 운영 체제 감지 및 설정
+ifeq ($(OS),Windows_NT)
+    CFLAGS += -I./lib
+    LDFLAGS += -L./lib -lpdcurses
+#	CFLAGS += -I./PDCurses
+#	LDFLAGS = -L./ -lpdcurses
+    TARGET = viva.exe
+    RM = del /f /q
+else
+    CFLAGS += $(shell ncursesw5-config --cflags)
+    LDFLAGS = $(shell ncursesw5-config --libs)
+    TARGET = viva
+    RM = rm -f
+endif
 
 # 소스 파일
 SRCS = main.c
 
-# 오브젝트 파일
-OBJS = $(SRCS:.c=.o)
+# 기본 규칙
+all: $(TARGET)
 
-# 기본 규칙: 프로그램 컴파일
-$(TARGET): $(OBJS)
-	$(CC) -o $(TARGET) $(OBJS) $(LDFLAGS)
+# 빌드 규칙
+$(TARGET): $(SRCS)
+	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
-# 개별 소스 파일 컴파일
-%.o: %.c
-	$(CC) -c $< $(CFLAGS)
-
-# 정리 규칙: 오브젝트 파일 및 실행 파일 제거
+# 정리 규칙
 clean:
-	rm -f $(OBJS) $(TARGET)
+	$(RM) $(TARGET)
 
-# make 실행 시 기본적으로 $(TARGET)을 실행
-.PHONY: clean
+# PHONY 타겟 설정
+.PHONY: all clean
