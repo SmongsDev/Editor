@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#if defined(_WIN32) || defined(_WIN64)
+#if _WIN32 || _WIN64
     #include <curses.h>       // Windows에서는 curses
 #else
     #include <ncurses.h>       // Linux에서는 ncurses
@@ -159,7 +159,7 @@ void editorOpen(const char *filename) {
     size_t linecap = 0; // 버퍼의 크기
     ssize_t linelen; // 문자열의 길이 (문자 수)
 
-    #ifdef _WIN32
+    #ifdef _WIN32 || _WIN64
         while ((linelen = window_getline(&line, &linecap, fp)) != -1) {
     #else
         while ((linelen = getline(&line, &linecap, fp)) != -1) {
@@ -305,7 +305,11 @@ void editorDelChar() {
 
 void editorMoveCursor(int key) {
     switch (key) {
-        case KEY_LEFT:
+        #if _WIN32 || _WIN64
+            case 260:
+        #else
+            case KEY_LEFT:
+        #endif
             if (E.cx > 0) {
                 E.cx--;
             } else if (E.currentRow->prev) {
@@ -314,7 +318,11 @@ void editorMoveCursor(int key) {
                 E.cx = E.currentRow->size;
             }
             break;
-        case KEY_RIGHT:
+        #if _WIN32 || _WIN64
+            case 261:
+        #else
+            case KEY_RIGHT:
+        #endif
             if (E.cx < E.currentRow->size) {
                 E.cx++;
             } else if (E.currentRow->next) {
@@ -347,7 +355,11 @@ void editorMoveCursor(int key) {
         case KEY_END:
             E.cx = E.currentRow->size;
             break;
-        case KEY_PPAGE:
+        #if _WIN32 || _WIN64
+            case 339:
+        #else
+            case KEY_PPAGE:
+        #endif
             for (int i = 0; i < E.screenRows; i++) {
                 if (E.currentRow->prev) {
                     E.currentRow = E.currentRow->prev;
@@ -357,7 +369,11 @@ void editorMoveCursor(int key) {
             if (E.cy < 0) E.cy = 0;
             if (E.cx > E.currentRow->size) E.cx = E.currentRow->size;
             break;
-        case KEY_NPAGE:  // Page Down
+        #if _WIN32 || _WIN64
+            case 338:
+        #else
+            case KEY_NPAGE:
+        #endif
             for (int i = 0; i < E.screenRows; i++) {
                 if (E.currentRow->next) {
                     E.currentRow = E.currentRow->next;
@@ -520,11 +536,6 @@ void editorSearchNext(char *query, int direction) {
     }
 }
 
-void updateWindowSize() {
-    getmaxyx(stdscr, E.screenRows, E.screenCols);
-    E.screenRows -= 2;
-}
-
 void editorRefreshScreen() {
     clear();
     editorRows();
@@ -534,6 +545,12 @@ void editorRefreshScreen() {
     refresh();
 }
 
+void updateWindowSize() {
+    getmaxyx(stdscr, E.screenRows, E.screenCols);
+    E.screenRows -= 2;
+    editorRefreshScreen();
+}
+
 void editorSearchMode(char *query) {
     while (search_mode) {
         editorRefreshScreen();
@@ -541,10 +558,18 @@ void editorSearchMode(char *query) {
 
         int c = getch();
         switch (c) {
-            case KEY_RIGHT:
+            #if _WIN32 || _WIN64
+                case 261:
+            #else
+                case KEY_RIGHT:
+            #endif
                 editorSearchNext(query, 1);
                 break;
-            case KEY_LEFT:
+            #if _WIN32 || _WIN64
+                case 260:
+            #else
+                case KEY_LEFT:
+            #endif
                 editorSearchNext(query, -1);
                 break;
             case '\n':
@@ -609,12 +634,19 @@ int main(int argc, char *argv[]) {
                 break;
             case KEY_UP:
             case KEY_DOWN:
-            case KEY_LEFT:
-            case KEY_RIGHT:
             case KEY_HOME:
             case KEY_END:
-            case KEY_PPAGE:
-            case KEY_NPAGE:
+            #if _WIN32 || _WIN64
+                case 338:
+                case 339:
+                case 260:
+                case 261:
+            #else
+                case KEY_NPAGE:
+                case KEY_PPAGE:
+                case KEY_LEFT:
+                case KEY_RIGHT:
+            #endif
                 editorMoveCursor(c);
                 break;
             case '\b':
