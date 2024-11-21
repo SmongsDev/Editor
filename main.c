@@ -41,6 +41,8 @@ struct searchResult {
 struct searchResult S;
 
 bool search_mode = false;
+int saved_cx, saved_cy, saved_rowoff;
+struct text *saved_currentRow;
 
 void die(const char *s) {
     endwin();
@@ -64,8 +66,8 @@ void initEditor() {
 
 void initColors() {
     start_color();
-    init_pair(1, COLOR_YELLOW, COLOR_BLACK); // 일반 검색 결과 색상
-    init_pair(2, COLOR_RED, COLOR_BLACK);    // 현재 검색 결과 색상
+    init_pair(1, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(2, COLOR_RED, COLOR_BLACK);
 
     use_default_colors();
 }
@@ -176,8 +178,8 @@ void editorOpen(const char *filename) {
 void editorSave() {
     if (E.filename == NULL) {
         char filename[256];
-        mvhline(E.screenRows, 0, ' ', E.screenCols);
-        mvprintw(E.screenRows, 0, "Save as: ");
+        mvhline(E.screenRows + 1, 0, ' ', E.screenCols);
+        mvprintw(E.screenRows + 1, 0, "Save as: ");
         echo();
         getnstr(filename, sizeof(filename) - 1);
         noecho();
@@ -218,7 +220,6 @@ void editorInsertNewline() {
     row->chars[E.cx] = '\0';  // 현재 줄의 남은 부분을 잘라냄
     row->size = E.cx;         // 현재 줄의 길이를 커서 위치로 업데이트
 
-    // 새로운 줄 생성 및 초기화
     struct text *new_row = (struct text *)malloc(sizeof(struct text));
     new_row->size = new_line_length;
     new_row->chars = new_line_content;
@@ -231,7 +232,6 @@ void editorInsertNewline() {
     }
     row->next = new_row;
 
-    // 새 줄로 커서 이동
     E.currentRow = new_row;
     E.totalRows++;
     E.cx = 0;
@@ -277,13 +277,11 @@ void editorDelChar() {
             E.cy--;
             E.cx = prev_row->size;
 
-            // 이전 줄 끝에 현재 줄 내용을 추가
             prev_row->chars = realloc(prev_row->chars, prev_row->size + row->size + 1);
             memcpy(&prev_row->chars[prev_row->size], row->chars, row->size);
             prev_row->size += row->size;
             prev_row->chars[prev_row->size] = '\0';
 
-            // 현재 줄을 삭제
             if (row->next) {
                 row->next->prev = prev_row;
             }
@@ -297,7 +295,6 @@ void editorDelChar() {
             E.isSave = true;
         }
     } else {
-        // E.cx가 0이 아닐 때, 일반적인 문자 삭제
         memmove(&row->chars[E.cx - 1], &row->chars[E.cx], row->size - E.cx);
         row->size--;
         E.cx--;
@@ -350,7 +347,7 @@ void editorMoveCursor(int key) {
         case KEY_END:
             E.cx = E.currentRow->size;
             break;
-        case KEY_PPAGE:  // Page Up
+        case KEY_PPAGE:
             for (int i = 0; i < E.screenRows; i++) {
                 if (E.currentRow->prev) {
                     E.currentRow = E.currentRow->prev;
@@ -420,7 +417,7 @@ void editorRows() {
 
 void editorStatusBar() {
     attron(A_REVERSE);
-    char *ext = strrchr(E.filename ? E.filename : "[No Name]", '.');
+    char *ext = strrchr(E.filename ? E.filename : "", '.');
 
     char leftStatus[40];
     snprintf(leftStatus, sizeof(leftStatus), " %s - %d lines", E.filename ? E.filename : "[No Name]", E.totalRows);
@@ -443,30 +440,12 @@ void editorMessageBar() {
     mvaddstr(y, 0, message);
 }
 
-void editorFindCallback(char *query) {
-    struct text *row = E.row;
-    S.row = NULL;
-    S.match_pos = -1;
-
-    while (row) {
-        char *match = strstr(row->chars, query);
-        if (match) {
-            S.row = row;
-            S.match_pos = match - row->chars;
-
-            E.cx = S.match_pos;
-            E.cy = row->index;
-            E.currentRow = row;
-            editorScroll();
-            break;
-        }
-        row = row->next;
-    }
-
-    snprintf(E.message, sizeof(E.message), "No match found for '%s'", query);
-}
-
 void editorFind(char *query) {
+    saved_cx = E.cx;
+    saved_cy = E.cy;
+    saved_rowoff = E.rowoff;
+    saved_currentRow = E.currentRow;
+
     struct text *row = E.row;
     S.row = NULL;
     S.match_pos = -1;
@@ -480,7 +459,7 @@ void editorFind(char *query) {
             E.cx = S.match_pos;
             E.cy = row->index;
             E.currentRow = row;
-            return;  // 첫 번째 결과를 찾으면 종료
+            return;
         }
         row = row->next;
     }
@@ -496,23 +475,19 @@ void editorHighlightMatch(char *query) {
             int match_pos = match - row->chars;
 
             if (row == S.row && match_pos == S.match_pos) {
-                // 현재 검색 결과 하이라이트
                 attron(COLOR_PAIR(2));
                 mvaddnstr(y - E.rowoff, match_pos, query, strlen(query));
                 attroff(COLOR_PAIR(2));
             } else {
-                // 일반 검색 결과 하이라이트
                 attron(COLOR_PAIR(1));
                 mvaddnstr(y - E.rowoff, match_pos, query, strlen(query));
                 attroff(COLOR_PAIR(1));
             }
-
             // 다음 검색 위치로 이동
             match = strstr(match + 1, query);
         }
     }
 }
-
 
 void editorSearchNext(char *query, int direction) {
     struct text *row = direction > 0 ? S.row->next : S.row->prev;
@@ -558,6 +533,7 @@ void editorRefreshScreen() {
     move(E.cy - E.rowoff, E.cx < E.screenCols ? E.cx : E.screenCols - 1);
     refresh();
 }
+
 void editorSearchMode(char *query) {
     while (search_mode) {
         editorRefreshScreen();
@@ -565,16 +541,27 @@ void editorSearchMode(char *query) {
 
         int c = getch();
         switch (c) {
-            case KEY_RIGHT:  // 다음 검색 결과로 이동
+            case KEY_RIGHT:
                 editorSearchNext(query, 1);
                 break;
-            case KEY_LEFT:  // 이전 검색 결과로 이동
+            case KEY_LEFT:
                 editorSearchNext(query, -1);
                 break;
-            case '\n':  // 검색 종료
-            case 27:    // ESC
+            case '\n':
+            case '\r':
                 search_mode = false;
                 return;
+            case 27:
+                E.cx = saved_cx;
+                E.cy = saved_cy;
+                E.rowoff = saved_rowoff;
+                E.currentRow = saved_currentRow;
+                search_mode = false;
+                return;
+            case KEY_RESIZE:
+                updateWindowSize();
+                editorScroll();
+                break;
         }
     }
 }
@@ -584,7 +571,6 @@ int main(int argc, char *argv[]) {
     raw();
     keypad(stdscr, TRUE);
     scrollok(stdscr, TRUE);
-//    noecho();
 
     initEditor();
     initColors();
@@ -607,20 +593,19 @@ int main(int argc, char *argv[]) {
                 }
                 endwin();
                 exit(0);
-                break;
             case CTRL_KEY('s'):
                 editorSave();
                 break;
             case CTRL_KEY('f'):
-                search_mode = true;  // 검색 모드 활성화
+                search_mode = true;
                 char query[256];
-                mvhline(E.screenRows + 1, 0, ' ', E.screenCols); // 상태 바 초기화
+                mvhline(E.screenRows + 1, 0, ' ', E.screenCols);
                 mvprintw(E.screenRows + 1, 0, "Search: ");
                 echo();
                 getnstr(query, sizeof(query) - 1);
                 noecho();
                 editorFind(query);
-                editorSearchMode(query);  // 검색 모드 실행
+                editorSearchMode(query);
                 break;
             case KEY_UP:
             case KEY_DOWN:
@@ -649,5 +634,4 @@ int main(int argc, char *argv[]) {
                 break;
         }
     }
-    return 0;
 }

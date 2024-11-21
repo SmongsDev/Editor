@@ -11,6 +11,8 @@ ifeq ($(OS),Windows_NT)
 #	CFLAGS += -I./PDCurses
 #	LDFLAGS = -L./ -lpdcurses
     TARGET = viva.exe
+    DLL = lib\pdcurses.dll
+    COPY = copy
     RM = del /f /q
 else
     CFLAGS += $(shell ncursesw5-config --cflags)
@@ -23,15 +25,22 @@ endif
 SRCS = main.c
 
 # 기본 규칙
-all: $(TARGET)
+all: $(TARGET) copy_dll
 
 # 빌드 규칙
 $(TARGET): $(SRCS)
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
+
+# DLL 복사 규칙 (Windows)
+copy_dll:
+ifeq ($(OS),Windows_NT)
+	$(COPY) $(DLL) .
+endif
+
 # 정리 규칙
 clean:
-	$(RM) $(TARGET)
+	$(RM) $(TARGET) pdcurses.dll
 
 # PHONY 타겟 설정
 .PHONY: all clean
