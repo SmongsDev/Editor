@@ -1,21 +1,16 @@
 # 컴파일러 설정
 CC = gcc
 
-# 공통 컴파일 옵션
-CFLAGS = -Wall -g
-
 # 운영 체제 감지 및 설정
 ifeq ($(OS),Windows_NT)
-    CFLAGS += -I./lib
+    CFLAGS = -I./lib
     LDFLAGS += -L./lib -lpdcurses
-#	CFLAGS += -I./PDCurses
-#	LDFLAGS = -L./ -lpdcurses
     TARGET = viva.exe
     DLL = lib\pdcurses.dll
     COPY = copy
     RM = del /f /q
 else
-    CFLAGS += $(shell ncursesw5-config --cflags)
+    CFLAGS = $(shell ncursesw5-config --cflags)
     LDFLAGS = $(shell ncursesw5-config --libs)
     TARGET = viva
     RM = rm -f

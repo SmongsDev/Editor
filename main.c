@@ -4,9 +4,9 @@
 #include <stdbool.h>
 
 #if _WIN32 || _WIN64
-    #include <curses.h>       // Windows에서는 curses
+    #include <curses.h>
 #else
-    #include <ncurses.h>       // Linux에서는 ncurses
+    #include <ncurses.h>
 #endif
 
 #define CTRL_KEY(k) ((k) & 0x1f)
@@ -34,8 +34,8 @@ struct editorConfig {
 struct editorConfig E;
 
 struct searchResult {
-    struct text *row;  // 검색된 줄의 포인터
-    int match_pos;     // 줄 내에서의 일치 위치
+    struct text *row;
+    int match_pos;
 };
 
 struct searchResult S;
@@ -595,7 +595,6 @@ int main(int argc, char *argv[]) {
     initscr();
     raw();
     keypad(stdscr, TRUE);
-    scrollok(stdscr, TRUE);
 
     initEditor();
     initColors();
