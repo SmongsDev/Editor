@@ -660,7 +660,7 @@ int main(int argc, char *argv[]) {
                 updateWindowSize();
                 editorScroll();
                 break;
-            default:
+            default:    
                 editorInsertChar(c);
                 break;
         }

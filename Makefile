@@ -4,7 +4,7 @@ CC = gcc
 # 운영 체제 감지 및 설정
 ifeq ($(OS),Windows_NT)
     CFLAGS = -I./lib
-    LDFLAGS += -L./lib -lpdcurses
+    LDFLAGS = -L./lib -lpdcurses
     TARGET = viva.exe
     DLL = lib\pdcurses.dll
     COPY = copy
