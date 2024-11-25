@@ -3,12 +3,13 @@ CC = gcc
 
 # 운영 체제 감지 및 설정
 ifeq ($(OS),Windows_NT)
-    CFLAGS = -I./lib
-    LDFLAGS = -L./lib -lpdcurses
+    CFLAGS = -I./PDCurses
+    LDFLAGS = -L./PDCurses/wincon -lpdcurses
     TARGET = viva.exe
-    DLL = lib\pdcurses.dll
-    COPY = copy
-    RM = del /f /q
+    DLL = PDCurses/wincon/pdcurses.dll
+    RM_DLL = ./pdcurses.dll
+    COPY = powershell -Command "Copy-Item"
+    RM = powershell -Command "Remove-Item"
 else
     CFLAGS = $(shell ncursesw5-config --cflags)
     LDFLAGS = $(shell ncursesw5-config --libs)
@@ -20,22 +21,26 @@ endif
 SRCS = main.c
 
 # 기본 규칙
-all: $(TARGET) copy_dll
+all: $(TARGET) pdcurses
 
 # 빌드 규칙
 $(TARGET): $(SRCS)
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
 
-# DLL 복사 규칙 (Windows)
-copy_dll:
+# pdcurses 복사 규칙 (Windows)
+pdcurses:
 ifeq ($(OS),Windows_NT)
-	$(COPY) $(DLL) .
+	mingw32-make -C PDCurses/wincon DLL=Y INFOEX=N
+	$(COPY) $(DLL) $(RM_DLL)
 endif
 
 # 정리 규칙
 clean:
-	$(RM) $(TARGET) pdcurses.dll
+	$(RM) $(TARGET)
+ifeq ($(OS),Windows_NT)
+	$(RM) $(RM_DLL)
+endif
 
 # PHONY 타겟 설정
-.PHONY: all clean
+.PHONY: all clean pdcurses

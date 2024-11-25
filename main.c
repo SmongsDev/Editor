@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#if _WIN32 || _WIN64
+#if defined(_WIN32) || defined(_WIN64)
     #include <curses.h>
 #else
     #include <ncurses.h>
@@ -159,7 +159,7 @@ void editorOpen(const char *filename) {
     size_t linecap = 0; // 버퍼의 크기
     ssize_t linelen; // 문자열의 길이 (문자 수)
 
-    #ifdef _WIN32 || _WIN64
+    #if defined(_WIN32) || defined(_WIN64)
         while ((linelen = window_getline(&line, &linecap, fp)) != -1) {
     #else
         while ((linelen = getline(&line, &linecap, fp)) != -1) {
@@ -305,7 +305,7 @@ void editorDelChar() {
 
 void editorMoveCursor(int key) {
     switch (key) {
-        #if _WIN32 || _WIN64
+        #if defined(_WIN32) || defined(_WIN64)
             case 260:
         #else
             case KEY_LEFT:
@@ -318,7 +318,7 @@ void editorMoveCursor(int key) {
                 E.cx = E.currentRow->size;
             }
             break;
-        #if _WIN32 || _WIN64
+        #if defined(_WIN32) || defined(_WIN64)
             case 261:
         #else
             case KEY_RIGHT:
@@ -355,7 +355,7 @@ void editorMoveCursor(int key) {
         case KEY_END:
             E.cx = E.currentRow->size;
             break;
-        #if _WIN32 || _WIN64
+        #if defined(_WIN32) || defined(_WIN64)
             case 339:
         #else
             case KEY_PPAGE:
@@ -369,7 +369,7 @@ void editorMoveCursor(int key) {
             if (E.cy < 0) E.cy = 0;
             if (E.cx > E.currentRow->size) E.cx = E.currentRow->size;
             break;
-        #if _WIN32 || _WIN64
+        #if defined(_WIN32) || defined(_WIN64)
             case 338:
         #else
             case KEY_NPAGE:
@@ -558,14 +558,14 @@ void editorSearchMode(char *query) {
 
         int c = getch();
         switch (c) {
-            #if _WIN32 || _WIN64
+            #if defined(_WIN32) || defined(_WIN64)
                 case 261:
             #else
                 case KEY_RIGHT:
             #endif
                 editorSearchNext(query, 1);
                 break;
-            #if _WIN32 || _WIN64
+            #if defined(_WIN32) || defined(_WIN64)
                 case 260:
             #else
                 case KEY_LEFT:
@@ -635,7 +635,7 @@ int main(int argc, char *argv[]) {
             case KEY_DOWN:
             case KEY_HOME:
             case KEY_END:
-            #if _WIN32 || _WIN64
+            #if defined(_WIN32) || defined(_WIN64)
                 case 338:
                 case 339:
                 case 260:

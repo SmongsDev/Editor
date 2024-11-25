@@ -61,5 +61,6 @@ Linux 환경
 - 대부분의 Linux 배포판에는 기본적으로 설치되어 있지만, 없는 경우 설치해야 함.
 
 Windows 환경
+- MinGW로 gcc, make 설치.
 - PDCurses 라이브러리가 필요. Makefile에서 자동으로 DLL 파일을 복사함.
 - 라이브러리 파일(pdcurses.dll)이 실행 파일과 같은 디렉토리에 있어야 함.
