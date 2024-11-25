@@ -21,7 +21,7 @@ endif
 SRCS = main.c
 
 # 기본 규칙
-all: $(TARGET) pdcurses
+all: pdcurses $(TARGET)
 
 # 빌드 규칙
 $(TARGET): $(SRCS)
