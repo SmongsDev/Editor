@@ -31,6 +31,7 @@ $(TARGET): $(SRCS)
 # pdcurses 복사 규칙 (Windows)
 pdcurses:
 ifeq ($(OS),Windows_NT)
+	mingw32-make -C PDCurses/wincon
 	mingw32-make -C PDCurses/wincon DLL=Y INFOEX=N
 	$(COPY) $(DLL) $(RM_DLL)
 endif
