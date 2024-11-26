@@ -11,8 +11,14 @@ ifeq ($(OS),Windows_NT)
     COPY = powershell -Command "Copy-Item"
     RM = powershell -Command "Remove-Item"
 else
-    CFLAGS = $(shell ncursesw5-config --cflags)
-    LDFLAGS = $(shell ncursesw5-config --libs)
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Darwin)
+        CFLAGS = -I/usr/include
+        LDFLAGS = -lncurses
+    else # Linux
+        CFLAGS = $(shell ncursesw5-config --cflags)
+        LDFLAGS = $(shell ncursesw5-config --libs)
+    endif
     TARGET = viva
     RM = rm -f
 endif
