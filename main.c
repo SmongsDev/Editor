@@ -261,7 +261,6 @@ void editorInsertChar(int c) {
     if (E.cx >= E.screenCols) {
         editorInsertNewline();
     }
-
     editorScroll();
 }
 
