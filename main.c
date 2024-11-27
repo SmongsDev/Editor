@@ -305,11 +305,7 @@ void editorDelChar() {
 
 void editorMoveCursor(int key) {
     switch (key) {
-        #if defined(_WIN32) || defined(_WIN64)
-            case 260:
-        #else
-            case KEY_LEFT:
-        #endif
+        case KEY_LEFT:
             if (E.cx > 0) {
                 E.cx--;
             } else if (E.currentRow->prev) {
@@ -318,11 +314,7 @@ void editorMoveCursor(int key) {
                 E.cx = E.currentRow->size;
             }
             break;
-        #if defined(_WIN32) || defined(_WIN64)
-            case 261:
-        #else
-            case KEY_RIGHT:
-        #endif
+        case KEY_RIGHT:
             if (E.cx < E.currentRow->size) {
                 E.cx++;
             } else if (E.currentRow->next) {
@@ -355,11 +347,7 @@ void editorMoveCursor(int key) {
         case KEY_END:
             E.cx = E.currentRow->size;
             break;
-        #if defined(_WIN32) || defined(_WIN64)
-            case 339:
-        #else
-            case KEY_PPAGE:
-        #endif
+        case KEY_PPAGE:
             for (int i = 0; i < E.screenRows; i++) {
                 if (E.currentRow->prev) {
                     E.currentRow = E.currentRow->prev;
@@ -369,11 +357,7 @@ void editorMoveCursor(int key) {
             if (E.cy < 0) E.cy = 0;
             if (E.cx > E.currentRow->size) E.cx = E.currentRow->size;
             break;
-        #if defined(_WIN32) || defined(_WIN64)
-            case 338:
-        #else
-            case KEY_NPAGE:
-        #endif
+        case KEY_NPAGE:
             for (int i = 0; i < E.screenRows; i++) {
                 if (E.currentRow->next) {
                     E.currentRow = E.currentRow->next;
@@ -594,18 +578,10 @@ void editorSearchMode(char *query) {
 
         int c = getch();
         switch (c) {
-            #if defined(_WIN32) || defined(_WIN64)
-                case 261:
-            #else
-                case KEY_RIGHT:
-            #endif
+            case KEY_RIGHT:
                 editorSearchNext(query, 1);
                 break;
-            #if defined(_WIN32) || defined(_WIN64)
-                case 260:
-            #else
-                case KEY_LEFT:
-            #endif
+            case KEY_LEFT:
                 editorSearchNext(query, -1);
                 break;
             case '\n':
@@ -671,17 +647,10 @@ int main(int argc, char *argv[]) {
             case KEY_DOWN:
             case KEY_HOME:
             case KEY_END:
-            #if defined(_WIN32) || defined(_WIN64)
-                case 338:
-                case 339:
-                case 260:
-                case 261:
-            #else
-                case KEY_NPAGE:
-                case KEY_PPAGE:
-                case KEY_LEFT:
-                case KEY_RIGHT:
-            #endif
+            case KEY_NPAGE:
+            case KEY_PPAGE:
+            case KEY_LEFT:
+            case KEY_RIGHT:
                 editorMoveCursor(c);
                 break;
             case '\b':
