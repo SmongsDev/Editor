@@ -15,7 +15,7 @@ else
     ifeq ($(UNAME_S),Darwin)
         CFLAGS = -I/usr/include
         LDFLAGS = -lncurses
-    else # Linux
+    else
         CFLAGS = $(shell ncursesw5-config --cflags)
         LDFLAGS = $(shell ncursesw5-config --libs)
     endif

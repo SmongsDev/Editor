@@ -504,18 +504,53 @@ void editorHighlightMatch(char *query) {
         }
     }
 }
-
 void editorSearchNext(char *query, int direction) {
     struct text *row = direction > 0 ? S.row->next : S.row->prev;
     int found = 0;
 
-    char *match = strstr(S.row->chars + S.match_pos + (direction > 0 ? 1 : -1), query);
-    if (match) {
-        S.match_pos = match - S.row->chars;
-        found = 1;
+    char *start_pos;
+    if (direction > 0) {
+        start_pos = S.row->chars + S.match_pos + 1; // 다음 문자부터 검색
     } else {
+        start_pos = S.match_pos > 0 ? S.row->chars + S.match_pos - 1 : NULL; // 이전 문자부터 검색
+    }
+
+    if (start_pos && direction < 0) {
+        // 뒤쪽부터 검색을 위해 문자열의 역순 검색 구현 필요
+        char *match = NULL;
+        for (char *p = start_pos; p >= S.row->chars; --p) {
+            if (strncmp(p, query, strlen(query)) == 0) {
+                match = p;
+                break;
+            }
+        }
+
+        if (match) {
+            S.match_pos = match - S.row->chars;
+            found = 1;
+        }
+    } else if (start_pos) {
+        char *match = strstr(start_pos, query);
+        if (match) {
+            S.match_pos = match - S.row->chars;
+            found = 1;
+        }
+    }
+
+    if (!found) {
         while (row) {
-            match = strstr(row->chars, query);
+            char *match = direction > 0
+                              ? strstr(row->chars, query)
+                              : NULL; // 역방향 검색 추가 구현 필요
+            if (!match && direction < 0) {
+                for (char *p = row->chars + row->size - 1; p >= row->chars; --p) {
+                    if (strncmp(p, query, strlen(query)) == 0) {
+                        match = p;
+                        break;
+                    }
+                }
+            }
+
             if (match) {
                 S.row = row;
                 S.match_pos = match - row->chars;
@@ -535,6 +570,7 @@ void editorSearchNext(char *query, int direction) {
         snprintf(E.message, sizeof(E.message), "No more matches found.");
     }
 }
+
 
 void editorRefreshScreen() {
     clear();
