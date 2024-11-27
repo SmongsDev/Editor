@@ -685,6 +685,7 @@ int main(int argc, char *argv[]) {
                 editorMoveCursor(c);
                 break;
             case '\b':
+            case 127:
             case KEY_BACKSPACE:
                 editorDelChar();
                 break;
