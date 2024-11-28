@@ -1,3 +1,23 @@
+/**
+* Visual Text Editor
+* ---------------------
+* C 언어로 구현된 텍스트 에디터로, Linux, Windows, Mac 환경에서 작동하도록 설계
+* 기본적인 텍스트 편집 작업, 파일 저장, 검색 기능을 구현
+*
+* 기능:
+* - `struct text`를 활용한 이중 연결 리스트로 텍스트를 동적 메모리 방식으로 관리
+* - `editorScroll()`을 이용한 커서 이동 및 화면 스크롤 처리
+*
+* 구조체:
+* - `struct text`: 에디터의 한 줄을 표현하는 구조체.
+* - `struct editorConfig`: 에디터 상태를 관리하는 구조체.
+* - `struct searchResult`: 검색 작업의 현재 상태를 추적하는 구조체.
+*
+* 작성자: 신성민
+* 버전: 1.0
+* 작성일: 2024-11-28
+**/
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -41,8 +61,8 @@ struct searchResult {
 struct searchResult S;
 
 bool search_mode = false;
-int saved_cx, saved_cy, saved_rowoff;
 struct text *saved_currentRow;
+int saved_cx, saved_cy, saved_rowoff;
 
 void die(const char *s) {
     endwin();
@@ -82,11 +102,9 @@ void updateLineIndexes() {
 }
 
 void editorScroll() {
-    // 커서가 화면 위쪽을 벗어났을 때
     if (E.cy < E.rowoff) {
         E.rowoff = E.cy;
     }
-    // 커서가 화면 아래쪽을 벗어났을 때
     if (E.cy >= E.rowoff + E.screenRows) {
         E.rowoff = E.cy - E.screenRows + 1;
     }
@@ -155,9 +173,9 @@ void editorOpen(const char *filename) {
    FILE *fp = fopen(filename, "r");
     if (!fp) die("fopen");
 
-    char *line = NULL; // 읽어온 줄을 저장할 문자열 포인터
-    size_t linecap = 0; // 버퍼의 크기
-    ssize_t linelen; // 문자열의 길이 (문자 수)
+    char *line = NULL;
+    size_t linecap = 0;
+    ssize_t linelen;
 
     #if defined(_WIN32) || defined(_WIN64)
         while ((linelen = window_getline(&line, &linecap, fp)) != -1) {
@@ -191,7 +209,7 @@ void editorSave() {
 
     struct text *row = E.row;
     while (row) {
-        fwrite(row->chars, 1, row->size, fp); // 한 줄씩 저장
+        fwrite(row->chars, 1, row->size, fp);
         fwrite("\n", 1, 1, fp);
         row = row->next;
     }
@@ -208,17 +226,14 @@ void editorInsertNewline() {
 
     struct text *row = E.currentRow;
 
-    // 현재 커서 위치 이후의 내용을 새 줄로 이동
     int new_line_length = row->size - E.cx;
     char *new_line_content = (char *)malloc(new_line_length + 1);
-    if (!new_line_content) return; // 메모리 할당 실패 시 함수 종료
 
-    // 새로운 줄에 현재 커서 이후의 내용 복사
     memcpy(new_line_content, &row->chars[E.cx], new_line_length);
-    new_line_content[new_line_length] = '\0';  // 널 문자로 종료
+    new_line_content[new_line_length] = '\0';
 
-    row->chars[E.cx] = '\0';  // 현재 줄의 남은 부분을 잘라냄
-    row->size = E.cx;         // 현재 줄의 길이를 커서 위치로 업데이트
+    row->chars[E.cx] = '\0';
+    row->size = E.cx;
 
     struct text *new_row = (struct text *)malloc(sizeof(struct text));
     new_row->size = new_line_length;
@@ -377,7 +392,6 @@ void editorRows() {
     for (int y = 0; y < E.screenRows; y++) {
         int fileRow = y + E.rowoff;
         if (fileRow >= E.totalRows) {
-            // 텍스트가 없을 때만 중앙에 메시지 출력
             if (E.totalRows == 0 && y == E.screenRows / 2) {
                 char welcome[80];
                 int welcomelen = snprintf(welcome, sizeof(welcome), "Visual Text editor -- version 0.0.1");
@@ -482,7 +496,6 @@ void editorHighlightMatch(char *query) {
                 mvaddnstr(y - E.rowoff, match_pos, query, strlen(query));
                 attroff(COLOR_PAIR(1));
             }
-            // 다음 검색 위치로 이동
             match = strstr(match + 1, query);
         }
     }
@@ -493,13 +506,12 @@ void editorSearchNext(char *query, int direction) {
 
     char *start_pos;
     if (direction > 0) {
-        start_pos = S.row->chars + S.match_pos + 1; // 다음 문자부터 검색
+        start_pos = S.row->chars + S.match_pos + 1;
     } else {
-        start_pos = S.match_pos > 0 ? S.row->chars + S.match_pos - 1 : NULL; // 이전 문자부터 검색
+        start_pos = S.match_pos > 0 ? S.row->chars + S.match_pos - 1 : NULL;
     }
 
     if (start_pos && direction < 0) {
-        // 뒤쪽부터 검색을 위해 문자열의 역순 검색 구현 필요
         char *match = NULL;
         for (char *p = start_pos; p >= S.row->chars; --p) {
             if (strncmp(p, query, strlen(query)) == 0) {
@@ -522,9 +534,7 @@ void editorSearchNext(char *query, int direction) {
 
     if (!found) {
         while (row) {
-            char *match = direction > 0
-                              ? strstr(row->chars, query)
-                              : NULL; // 역방향 검색 추가 구현 필요
+            char *match = direction > 0 ? strstr(row->chars, query) : NULL;
             if (!match && direction < 0) {
                 for (char *p = row->chars + row->size - 1; p >= row->chars; --p) {
                     if (strncmp(p, query, strlen(query)) == 0) {
