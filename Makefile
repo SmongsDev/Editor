@@ -16,8 +16,8 @@ else
         CFLAGS = -I/usr/include
         LDFLAGS = -lncurses
     else
-        CFLAGS = $(shell ncursesw5-config --cflags)
-        LDFLAGS = $(shell ncursesw5-config --libs)
+		CFLAGS = -lncurses
+		LDFLAGS =
     endif
     TARGET = viva
     RM = rm -f
