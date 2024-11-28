@@ -661,7 +661,12 @@ int main(int argc, char *argv[]) {
             case '\n':
                 editorInsertNewline();
                 break;
-            case KEY_RESIZE:
+            #if defined(_WIN32) || defined(_WIN64)
+                case 546:
+                    resize_term(0,0);
+            #else
+                case KEY_RESIZE:
+            #endif
                 updateWindowSize();
                 editorScroll();
                 break;
