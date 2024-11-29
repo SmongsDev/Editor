@@ -1,6 +1,6 @@
 Visual Text Editor - README
 
-1. 프로그램 소개
+1. 프로젝트 소개
 Windows와 Linux, Mac 환경에서 편집, 저장, 찾기 등의 기능을 갖춘 메모리 에디터
 
 2. 주요 기능
@@ -48,10 +48,35 @@ Windows와 Linux, Mac 환경에서 편집, 저장, 찾기 등의 기능을 갖�
 - 상태 바: 파일명, 총 줄 수, 현재 커서 위치 등 정보 표시
 - 메시지 바: 도움말과 상태 메시지 표시
 
-6. 기술적 특징
-- ncurses/PDCurses 라이브러리 사용
+6. 기술
 - 링크드 리스트 구조로 텍스트 관리
 - 동적 메모리 할당
+- ncurses/PDCurses 라이브러리 사용
+  초기화 및 종료
+  - initscr(): 화면 초기화 및 ncurses 모드 시작
+  - endwin(): ncurses 모드 종료 및 터미널 상태 복원
+  입력 모드 설정
+  - raw(): 입력 버퍼링을 비활성화하여 키 입력 처리
+  - keypad(stdscr, TRUE): 특수키 활성화
+  화면 제어
+  - clear(): 화면 지움
+  - refresh(): 화면 갱신
+  - move(y, x): 커서를 지정한 위치로 이동
+  문자열 출력
+  - mvaddstr(y, x, str): 지정한 위치에 문자열 출력
+  - mvaddnstr(y, x, str, n): 지정한 위치에 n개의 문자 출력
+  속성 설정
+  - attron(attr): 지정된 속성 활성화
+  - attroff(attr): 지정된 속성 비활성화
+  색상 처리
+  - start_color(): 색상 모드 초기화
+  - init_pair(pair, fg, bg): 색상 쌍 정의
+  창 크기
+  - getmaxyx(stdscr, rows, cols): 현재 터미널 창의 크기
+  입력처리
+  - getch(): 키보드 입력 문자 받기
+  스크롤
+  - scrollok(stdscr, TRUE): 스크롤 활성화
 
 7. 빌드 정보
 - 컴파일러: GCC
@@ -62,11 +87,17 @@ Windows와 Linux, Mac 환경에서 편집, 저장, 찾기 등의 기능을 갖�
 8.1 Linux 환경
 - ncurses 라이브러리가 시스템에 설치되어 있어야 함
 - 대부분의 Linux 배포판에는 기본적으로 설치되어 있지만, 없는 경우 설치해야 함
+- 설치 명령어
+  `sudo apt-get install libncurses5-dev libncursesw5-dev`
 
 8.2 Mac 환경
 - ncurses 라이브러리가 시스템에 설치되어 있어야 함
+- 설치 명령어
+  `brew install ncurses`
 
 8.3 Windows 환경
 - MinGW로 gcc, make 설치
 - PDCurses 라이브러리가 필요. Makefile에서 자동으로 DLL 파일을 복사함
 - 라이브러리 파일(pdcurses.dll)이 실행 파일과 같은 디렉토리에 있어야 함
+- 파일 다운로드
+  `git clone https://github.com/wmcbrine/PDCurses.git`

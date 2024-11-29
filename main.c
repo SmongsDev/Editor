@@ -1,23 +1,3 @@
-/**
-* Visual Text Editor
-* ---------------------
-* C 언어로 구현된 텍스트 에디터로, Linux, Windows, Mac 환경에서 작동하도록 설계
-* 기본적인 텍스트 편집 작업, 파일 저장, 검색 기능을 구현
-*
-* 기능:
-* - `struct text`를 활용한 이중 연결 리스트로 텍스트를 동적 메모리 방식으로 관리
-* - `editorScroll()`을 이용한 커서 이동 및 화면 스크롤 처리
-*
-* 구조체:
-* - `struct text`: 에디터의 한 줄을 표현하는 구조체.
-* - `struct editorConfig`: 에디터 상태를 관리하는 구조체.
-* - `struct searchResult`: 검색 작업의 현재 상태를 추적하는 구조체.
-*
-* 작성자: 신성민
-* 버전: 1.0
-* 작성일: 2024-11-28
-**/
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
